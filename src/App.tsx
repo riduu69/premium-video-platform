@@ -313,6 +313,11 @@ const LoginPage = () => {
         {error && <div className="bg-red-500/10 border border-red-500/20 text-red-500 p-4 rounded-xl text-sm mb-6">{error}</div>}
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="bg-white/5 border border-white/10 rounded-xl p-4 mb-2">
+            <p className="text-[10px] uppercase tracking-widest text-white/40 mb-2 font-bold">Admin Demo Credentials</p>
+            <p className="text-xs text-white/70">Email: <span className="text-red-400 font-mono">admin@hridoy.com</span></p>
+            <p className="text-xs text-white/70">Pass: <span className="text-red-400 font-mono">admin123</span></p>
+          </div>
           <div>
             <label className="block text-sm font-medium text-white/70 mb-2">Email Address</label>
             <input 
@@ -486,6 +491,7 @@ const DashboardPage = () => {
 
 const AdminPage = () => {
   const { user, token } = useAuth();
+  const navigate = useNavigate();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [thumbnailUrl, setThumbnailUrl] = useState('');
@@ -495,7 +501,28 @@ const AdminPage = () => {
   const [price, setPrice] = useState('9.99');
   const [success, setSuccess] = useState(false);
 
-  if (user?.role !== 'admin') return <div className="min-h-screen bg-black flex items-center justify-center text-white">Access Denied</div>;
+  useEffect(() => {
+    if (!user) {
+      navigate('/login');
+    }
+  }, [user, navigate]);
+
+  if (!user) return null;
+
+  if (user.role !== 'admin') {
+    return (
+      <div className="min-h-screen bg-black flex flex-col items-center justify-center text-white p-6 text-center">
+        <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mb-6">
+          <Lock size={40} className="text-red-500" />
+        </div>
+        <h2 className="text-3xl font-bold mb-4">Access Denied</h2>
+        <p className="text-white/60 mb-8 max-w-md">You do not have administrative privileges to access this dashboard.</p>
+        <Link to="/" className="px-8 py-3 bg-white text-black font-bold rounded-full hover:bg-white/90 transition-all">
+          Return Home
+        </Link>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
