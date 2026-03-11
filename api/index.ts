@@ -3,13 +3,19 @@ import path from 'path';
 import Database from 'better-sqlite3';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { v2 as cloudinary } from 'cloudinary';
 
 const app = express();
 app.use(express.json());
 
+// Cloudinary Config
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
 // In-memory or SQLite? 
-// For Vercel, SQLite is tricky. I'll use a simple file-based one but warn.
-// On Vercel, /tmp is writable but not persistent.
 const dbPath = process.env.VERCEL ? '/tmp/database.sqlite' : 'database.sqlite';
 const db = new Database(dbPath);
 
@@ -31,52 +37,6 @@ db.exec(`
   );
 `);
 
-// Seed Admin Logic (We use env vars for login, but we can still seed a user table if needed)
-// For this rebuild, I'll use the env vars directly for the /api/login endpoint as requested.
-
-// Seed initial videos if empty
-const videoCount = db.prepare('SELECT COUNT(*) as count FROM videos').get() as { count: number };
-if (videoCount.count === 0) {
-  const sampleVideos = [
-    {
-      title: 'Cosmic Journey: Beyond the Stars',
-      description: 'Explore the mysteries of the universe in this breathtaking documentary.',
-      thumbnail_url: 'https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&q=80&w=1920&h=1080',
-      video_url: 'https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-      category: 'Trending',
-      is_premium: 0,
-      price: 0
-    },
-    {
-      title: 'Neon Nights: Cyberpunk 2077',
-      description: 'A high-octane action thriller set in a dystopian future.',
-      thumbnail_url: 'https://images.unsplash.com/photo-1605810230434-7631ac76ec81?auto=format&fit=crop&q=80&w=1920&h=1080',
-      video_url: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
-      category: 'Premium',
-      is_premium: 1,
-      price: 14.99
-    },
-    {
-      title: 'The Last Stand',
-      description: 'One soldier must make the ultimate sacrifice.',
-      thumbnail_url: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&q=80&w=1920&h=1080',
-      video_url: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-      category: 'Free',
-      is_premium: 0,
-      price: 0
-    }
-  ];
-
-  const insertVideo = db.prepare(`
-    INSERT INTO videos (title, description, thumbnail_url, video_url, category, is_premium, price)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  sampleVideos.forEach(v => {
-    insertVideo.run(v.title, v.description, v.thumbnail_url, v.video_url, v.category, v.is_premium, v.price);
-  });
-}
-
 // Auth Middleware
 interface AuthRequest extends Request {
   user?: any;
@@ -96,19 +56,41 @@ const authenticate = (req: AuthRequest, res: Response, next: NextFunction) => {
 // Login Endpoint
 app.post('/api/login', (req: Request, res: Response) => {
   const { email, password } = req.body;
-  
   if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
     const token = jwt.sign({ email, role: 'admin' }, JWT_SECRET);
     return res.json({ token, user: { email, role: 'admin' } });
   }
-  
   res.status(401).json({ error: 'Invalid credentials' });
+});
+
+// Cloudinary Signature for secure frontend upload
+app.get('/api/cloudinary-signature', authenticate, (req: AuthRequest, res: Response) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+  
+  const timestamp = Math.round(new Date().getTime() / 1000);
+  const signature = cloudinary.utils.api_sign_request(
+    { timestamp, folder: 'hridoy_hub' },
+    process.env.CLOUDINARY_API_SECRET!
+  );
+  
+  res.json({
+    signature,
+    timestamp,
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+  });
 });
 
 // Video Routes
 app.get('/api/videos', (req: Request, res: Response) => {
   const videos = db.prepare('SELECT * FROM videos').all();
   res.json(videos);
+});
+
+app.get('/api/videos/:id', (req: Request, res: Response) => {
+  const video = db.prepare('SELECT * FROM videos WHERE id = ?').get(req.params.id);
+  if (!video) return res.status(404).json({ error: 'Video not found' });
+  res.json(video);
 });
 
 app.post('/api/videos', authenticate, (req: AuthRequest, res: Response) => {

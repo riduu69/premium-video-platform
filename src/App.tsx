@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, Link, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
-import { Play, Lock, User, LogOut, Upload, Home, LayoutGrid, Search, ChevronRight, CheckCircle2, Trash2, CreditCard, Smartphone } from 'lucide-react';
+import { Play, Lock, LogOut, Upload, Home, LayoutGrid, Search, ChevronRight, CheckCircle2, Trash2, CreditCard, Smartphone, Loader2, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -30,17 +30,17 @@ const Navbar = () => {
         </div>
       </div>
       <div className="flex items-center gap-4">
-        {user ? (
+        {user?.role === 'admin' ? (
           <div className="flex items-center gap-4">
-            <span className="text-sm text-white/70 hidden sm:inline">{user.email}</span>
-            <button onClick={() => { logout(); navigate('/login'); }} className="p-2 hover:bg-white/10 rounded-full transition-colors text-white/70 hover:text-white">
+            <span className="text-sm text-white/70 hidden sm:inline">Admin</span>
+            <button onClick={() => { logout(); navigate('/'); }} className="p-2 hover:bg-white/10 rounded-full transition-colors text-white/70 hover:text-white">
               <LogOut size={20} />
             </button>
           </div>
         ) : (
-          <Link to="/login" className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-full text-sm font-medium transition-all">
-            Sign In
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link to="/login" className="text-white/30 hover:text-white/60 text-xs transition-colors">Admin Login</Link>
+          </div>
         )}
       </div>
     </nav>
@@ -53,7 +53,7 @@ const VideoCard = ({ video, onDelete }: { video: any, onDelete?: (id: number) =>
   return (
     <motion.div 
       whileHover={{ scale: 1.05 }}
-      className="group relative aspect-video rounded-xl overflow-hidden bg-zinc-900 cursor-pointer shadow-lg"
+      className="group relative aspect-video rounded-xl overflow-hidden bg-zinc-900 cursor-pointer shadow-lg border border-white/5"
     >
       <Link to={`/video/${video.id}`}>
         <img 
@@ -62,19 +62,18 @@ const VideoCard = ({ video, onDelete }: { video: any, onDelete?: (id: number) =>
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
           referrerPolicy="no-referrer"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
-          <h3 className="text-white font-semibold text-lg leading-tight">{video.title}</h3>
-          <p className="text-white/60 text-xs mt-1 line-clamp-1">{video.category}</p>
-          <div className="flex items-center justify-between mt-3">
-            <div className="flex items-center gap-2">
-              <div className="bg-red-600 p-2 rounded-full">
-                <Play size={14} fill="white" />
-              </div>
-              <span className="text-xs font-medium text-white">Watch Now</span>
-            </div>
+        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+          <div className="w-12 h-12 bg-red-600 rounded-full flex items-center justify-center shadow-xl transform scale-75 group-hover:scale-100 transition-transform duration-300">
+            <Play size={24} fill="white" className="ml-1" />
+          </div>
+        </div>
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent flex flex-col justify-end p-4">
+          <h3 className="text-white font-semibold text-sm md:text-base leading-tight group-hover:text-red-500 transition-colors">{video.title}</h3>
+          <div className="flex items-center justify-between mt-2">
+            <p className="text-white/60 text-[10px] uppercase tracking-wider">{video.category}</p>
             {video.is_premium === 1 && (
-              <div className="bg-amber-500/20 text-amber-500 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
-                <Lock size={10} /> Premium
+              <div className="bg-amber-500/20 text-amber-500 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider flex items-center gap-1">
+                <Lock size={8} /> Premium
               </div>
             )}
           </div>
@@ -83,9 +82,9 @@ const VideoCard = ({ video, onDelete }: { video: any, onDelete?: (id: number) =>
       {user?.role === 'admin' && onDelete && (
         <button 
           onClick={(e) => { e.preventDefault(); onDelete(video.id); }}
-          className="absolute top-2 right-2 p-2 bg-red-600/80 hover:bg-red-600 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity"
+          className="absolute top-2 right-2 p-2 bg-red-600/80 hover:bg-red-600 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity z-20"
         >
-          <Trash2 size={16} />
+          <Trash2 size={14} />
         </button>
       )}
     </motion.div>
@@ -113,7 +112,7 @@ const HomePage = () => {
     <div className="pt-20 pb-12 min-h-screen bg-black text-white">
       {/* Hero Section */}
       {videos.length > 0 && (
-        <div className="relative h-[80vh] w-full overflow-hidden">
+        <div className="relative h-[70vh] w-full overflow-hidden">
           <img 
             src={videos[0].thumbnail_url || `https://picsum.photos/seed/hero/1920/1080`} 
             className="w-full h-full object-cover opacity-60"
@@ -136,9 +135,6 @@ const HomePage = () => {
                 <Link to={`/video/${videos[0].id}`} className="px-8 py-3 bg-white text-black font-bold rounded-full flex items-center gap-2 hover:bg-white/90 transition-all">
                   <Play size={20} fill="black" /> Play Now
                 </Link>
-                <button className="px-8 py-3 bg-white/10 text-white font-bold rounded-full backdrop-blur-md hover:bg-white/20 transition-all">
-                  More Info
-                </button>
               </div>
             </motion.div>
           </div>
@@ -146,14 +142,17 @@ const HomePage = () => {
       )}
 
       {/* Rows */}
-      <div className="px-6 md:px-16 -mt-20 relative z-10 space-y-12">
+      <div className="px-6 md:px-16 -mt-20 relative z-10 space-y-16">
         {categories.map(cat => {
           const catVideos = videos.filter((v: any) => v.category === cat || (cat === 'Premium' && v.is_premium === 1) || (cat === 'Free' && v.is_premium === 0));
           if (catVideos.length === 0) return null;
           
           return (
             <div key={cat}>
-              <h2 className="text-2xl font-bold mb-6">{cat}</h2>
+              <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                <div className="w-1 h-6 bg-red-600 rounded-full" />
+                {cat}
+              </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {catVideos.map((video: any) => (
                   <VideoCard key={video.id} video={video} />
@@ -232,7 +231,9 @@ const VideoDetailPage = () => {
               className="w-full h-full"
               poster={video.thumbnail_url}
               src={video.video_url}
-            />
+            >
+              Your browser does not support the video tag.
+            </video>
           </div>
         )}
 
@@ -337,12 +338,15 @@ const AdminPage = () => {
   const [videos, setVideos] = useState([]);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [thumbnailUrl, setThumbnailUrl] = useState('');
-  const [videoUrl, setVideoUrl] = useState('');
   const [category, setCategory] = useState('Trending');
   const [isPremium, setIsPremium] = useState(false);
   const [price, setPrice] = useState('9.99');
   const [success, setSuccess] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+
+  const thumbnailInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (user?.role !== 'admin') {
@@ -358,32 +362,83 @@ const AdminPage = () => {
       .then(data => setVideos(data));
   };
 
+  const uploadToCloudinary = async (file: File, resourceType: 'image' | 'video') => {
+    // 1. Get signature from our API
+    const sigRes = await fetch('/api/cloudinary-signature', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const { signature, timestamp, cloud_name, api_key } = await sigRes.json();
+
+    // 2. Upload directly to Cloudinary
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('api_key', api_key);
+    formData.append('timestamp', timestamp);
+    formData.append('signature', signature);
+    formData.append('folder', 'hridoy_hub');
+
+    const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${cloud_name}/${resourceType}/upload`, {
+      method: 'POST',
+      body: formData
+    });
+    const uploadData = await uploadRes.json();
+    return uploadData.secure_url;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const res = await fetch('/api/videos', {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({ 
-        title, 
-        description, 
-        thumbnail_url: thumbnailUrl, 
-        video_url: videoUrl, 
-        category, 
-        is_premium: isPremium, 
-        price: parseFloat(price) 
-      })
-    });
-    if (res.ok) {
-      setSuccess(true);
-      setTitle('');
-      setDescription('');
-      setThumbnailUrl('');
-      setVideoUrl('');
-      fetchVideos();
-      setTimeout(() => setSuccess(false), 3000);
+    if (!thumbnailInputRef.current?.files?.[0] || !videoInputRef.current?.files?.[0]) {
+      alert('Please select both thumbnail and video files');
+      return;
+    }
+
+    setUploading(true);
+    setUploadProgress(10);
+
+    try {
+      // Upload Thumbnail
+      setUploadProgress(20);
+      const thumbnailUrl = await uploadToCloudinary(thumbnailInputRef.current.files[0], 'image');
+      
+      // Upload Video
+      setUploadProgress(50);
+      const videoUrl = await uploadToCloudinary(videoInputRef.current.files[0], 'video');
+      
+      setUploadProgress(90);
+      
+      // Save to Database
+      const res = await fetch('/api/videos', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ 
+          title, 
+          description, 
+          thumbnail_url: thumbnailUrl, 
+          video_url: videoUrl, 
+          category, 
+          is_premium: isPremium, 
+          price: parseFloat(price) 
+        })
+      });
+
+      if (res.ok) {
+        setSuccess(true);
+        setTitle('');
+        setDescription('');
+        if (thumbnailInputRef.current) thumbnailInputRef.current.value = '';
+        if (videoInputRef.current) videoInputRef.current.value = '';
+        fetchVideos();
+        setTimeout(() => setSuccess(false), 3000);
+      }
+    } catch (err) {
+      console.error('Upload failed:', err);
+      alert('Upload failed. Check console for details.');
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -439,22 +494,29 @@ const AdminPage = () => {
                   <option>Action</option>
                   <option>Drama</option>
                 </select>
-                <input 
-                  type="url" 
-                  placeholder="Thumbnail URL"
-                  required 
-                  value={thumbnailUrl}
-                  onChange={e => setThumbnailUrl(e.target.value)}
-                  className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-red-500/50"
-                />
-                <input 
-                  type="url" 
-                  placeholder="Video URL (.mp4)"
-                  required 
-                  value={videoUrl}
-                  onChange={e => setVideoUrl(e.target.value)}
-                  className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-red-500/50"
-                />
+                
+                <div className="space-y-2">
+                  <label className="text-xs text-white/50 block ml-1">Thumbnail Image</label>
+                  <input 
+                    type="file" 
+                    accept="image/*"
+                    required 
+                    ref={thumbnailInputRef}
+                    className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white text-sm file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-red-600 file:text-white hover:file:bg-red-700 cursor-pointer"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs text-white/50 block ml-1">Video File (.mp4)</label>
+                  <input 
+                    type="file" 
+                    accept="video/mp4"
+                    required 
+                    ref={videoInputRef}
+                    className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white text-sm file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-red-600 file:text-white hover:file:bg-red-700 cursor-pointer"
+                  />
+                </div>
+
                 <textarea 
                   placeholder="Description"
                   required 
@@ -481,8 +543,22 @@ const AdminPage = () => {
                     className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-red-500/50"
                   />
                 )}
-                <button type="submit" className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-red-600/20">
-                  Publish
+                <button 
+                  type="submit" 
+                  disabled={uploading}
+                  className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-900 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-red-600/20 flex items-center justify-center gap-2"
+                >
+                  {uploading ? (
+                    <>
+                      <Loader2 className="animate-spin" size={20} />
+                      Uploading {uploadProgress}%
+                    </>
+                  ) : (
+                    <>
+                      <Plus size={20} />
+                      Publish Video
+                    </>
+                  )}
                 </button>
               </form>
             </div>
