@@ -99,108 +99,114 @@ if (videoCount.count === 0) {
   });
 }
 
-async function startServer() {
-  const app = express();
-  app.use(express.json());
+const app = express();
 
-  // Auth Middleware
-  const authenticate = (req: any, res: any, next: any) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) return res.status(401).json({ error: 'Unauthorized' });
-    try {
-      req.user = jwt.verify(token, JWT_SECRET);
-      next();
-    } catch (err) {
-      res.status(401).json({ error: 'Invalid token' });
-    }
-  };
+const app = express();
+app.use(express.json());
 
-  const isAdmin = (req: any, res: any, next: any) => {
-    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+// Auth Middleware
+const authenticate = (req: any, res: any, next: any) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    req.user = jwt.verify(token, JWT_SECRET);
     next();
-  };
+  } catch (err) {
+    res.status(401).json({ error: 'Invalid token' });
+  }
+};
 
-  // Auth Routes
-  app.post('/api/auth/signup', (req, res) => {
-    const { email, password } = req.body;
-    try {
-      const hashedPassword = bcrypt.hashSync(password, 10);
-      const result = db.prepare('INSERT INTO users (email, password) VALUES (?, ?)').run(email, hashedPassword);
-      res.json({ id: result.lastInsertRowid });
-    } catch (err) {
-      res.status(400).json({ error: 'Email already exists' });
-    }
-  });
+const isAdmin = (req: any, res: any, next: any) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+  next();
+};
 
-  app.post('/api/auth/login', (req, res) => {
-    const { email, password } = req.body;
-    const user: any = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
-    if (!user || !bcrypt.compareSync(password, user.password)) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET);
-    res.json({ token, user: { id: user.id, email: user.email, role: user.role } });
-  });
-
-  // Video Routes
-  app.get('/api/videos', (req, res) => {
-    const videos = db.prepare('SELECT * FROM videos').all();
-    res.json(videos);
-  });
-
-  app.get('/api/videos/:id', (req, res) => {
-    const video = db.prepare('SELECT * FROM videos WHERE id = ?').get(req.params.id);
-    res.json(video);
-  });
-
-  app.post('/api/videos', authenticate, isAdmin, (req, res) => {
-    const { title, description, thumbnail_url, video_url, category, is_premium, price } = req.body;
-    const result = db.prepare(`
-      INSERT INTO videos (title, description, thumbnail_url, video_url, category, is_premium, price)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(title, description, thumbnail_url, video_url, category, is_premium ? 1 : 0, price || 0);
+// Auth Routes
+app.post('/api/auth/signup', (req, res) => {
+  const { email, password } = req.body;
+  try {
+    const hashedPassword = bcrypt.hashSync(password, 10);
+    const result = db.prepare('INSERT INTO users (email, password) VALUES (?, ?)').run(email, hashedPassword);
     res.json({ id: result.lastInsertRowid });
-  });
+  } catch (err) {
+    res.status(400).json({ error: 'Email already exists' });
+  }
+});
 
-  // Purchase Routes
-  app.post('/api/purchase', authenticate, (req: any, res) => {
-    const { video_id } = req.body;
-    const user_id = req.user.id;
-    // Check if already purchased
-    const existing = db.prepare('SELECT * FROM purchases WHERE user_id = ? AND video_id = ?').get(user_id, video_id);
-    if (existing) return res.json({ message: 'Already purchased' });
+app.post('/api/auth/login', (req, res) => {
+  const { email, password } = req.body;
+  const user: any = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+  if (!user || !bcrypt.compareSync(password, user.password)) {
+    return res.status(401).json({ error: 'Invalid credentials' });
+  }
+  const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET);
+  res.json({ token, user: { id: user.id, email: user.email, role: user.role } });
+});
 
-    db.prepare('INSERT INTO purchases (user_id, video_id) VALUES (?, ?)').run(user_id, video_id);
-    res.json({ success: true });
-  });
+// Video Routes
+app.get('/api/videos', (req, res) => {
+  const videos = db.prepare('SELECT * FROM videos').all();
+  res.json(videos);
+});
 
-  app.get('/api/user/purchases', authenticate, (req: any, res) => {
-    const purchases = db.prepare(`
-      SELECT v.* FROM videos v
-      JOIN purchases p ON v.id = p.video_id
-      WHERE p.user_id = ?
-    `).all(req.user.id);
-    res.json(purchases);
-  });
+app.get('/api/videos/:id', (req, res) => {
+  const video = db.prepare('SELECT * FROM videos WHERE id = ?').get(req.params.id);
+  res.json(video);
+});
 
-  // Vite middleware for development
-  if (process.env.NODE_ENV !== 'production') {
+app.post('/api/videos', authenticate, isAdmin, (req, res) => {
+  const { title, description, thumbnail_url, video_url, category, is_premium, price } = req.body;
+  const result = db.prepare(`
+    INSERT INTO videos (title, description, thumbnail_url, video_url, category, is_premium, price)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(title, description, thumbnail_url, video_url, category, is_premium ? 1 : 0, price || 0);
+  res.json({ id: result.lastInsertRowid });
+});
+
+// Purchase Routes
+app.post('/api/purchase', authenticate, (req: any, res) => {
+  const { video_id } = req.body;
+  const user_id = req.user.id;
+  // Check if already purchased
+  const existing = db.prepare('SELECT * FROM purchases WHERE user_id = ? AND video_id = ?').get(user_id, video_id);
+  if (existing) return res.json({ message: 'Already purchased' });
+
+  db.prepare('INSERT INTO purchases (user_id, video_id) VALUES (?, ?)').run(user_id, video_id);
+  res.json({ success: true });
+});
+
+app.get('/api/user/purchases', authenticate, (req: any, res) => {
+  const purchases = db.prepare(`
+    SELECT v.* FROM videos v
+    JOIN purchases p ON v.id = p.video_id
+    WHERE p.user_id = ?
+  `).all(req.user.id);
+  res.json(purchases);
+});
+
+async function setupVite() {
+  if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
     });
     app.use(vite.middlewares);
-  } else {
+  } else if (!process.env.VERCEL) {
     app.use(express.static(path.resolve(__dirname, 'dist')));
     app.get('*', (req, res) => {
       res.sendFile(path.resolve(__dirname, 'dist/index.html'));
     });
   }
+}
 
-  const PORT = 3000;
+setupVite();
+
+const PORT = process.env.PORT || 3000;
+if (!process.env.VERCEL) {
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://localhost:${PORT}`);
+    console.log('NOTE: SQLite database will not persist on Vercel. Consider using a hosted database like Supabase or Neon for production.');
   });
 }
 
-startServer();
+export default app;
