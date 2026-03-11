@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
-import { Play, Lock, User, LogOut, Upload, Home, LayoutGrid, Search, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { Play, Lock, User, LogOut, Upload, Home, LayoutGrid, Search, ChevronRight, CheckCircle2, Trash2, CreditCard, Smartphone } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -21,12 +21,11 @@ const Navbar = () => {
     <nav className="fixed top-0 left-0 right-0 z-50 bg-black/80 backdrop-blur-md border-b border-white/10 px-6 py-4 flex items-center justify-between">
       <div className="flex items-center gap-8">
         <Link to="/" className="text-2xl font-bold bg-gradient-to-r from-red-600 to-orange-500 bg-clip-text text-transparent">
-          Hridoy Video Hub
+          Hridoy Hub
         </Link>
         <div className="hidden md:flex items-center gap-6">
           <Link to="/" className={cn("text-sm font-medium transition-colors hover:text-red-500", location.pathname === '/' ? "text-red-500" : "text-white/70")}>Home</Link>
           <Link to="/categories" className={cn("text-sm font-medium transition-colors hover:text-red-500", location.pathname === '/categories' ? "text-red-500" : "text-white/70")}>Categories</Link>
-          {user && <Link to="/dashboard" className={cn("text-sm font-medium transition-colors hover:text-red-500", location.pathname === '/dashboard' ? "text-red-500" : "text-white/70")}>My Library</Link>}
           {user?.role === 'admin' && <Link to="/admin" className={cn("text-sm font-medium transition-colors hover:text-red-500", location.pathname === '/admin' ? "text-red-500" : "text-white/70")}>Admin Panel</Link>}
         </div>
       </div>
@@ -48,7 +47,9 @@ const Navbar = () => {
   );
 };
 
-const VideoCard = ({ video, isPurchased }: { video: any, isPurchased?: boolean, key?: any }) => {
+const VideoCard = ({ video, onDelete }: { video: any, onDelete?: (id: number) => void, key?: any }) => {
+  const { user } = useAuth();
+  
   return (
     <motion.div 
       whileHover={{ scale: 1.05 }}
@@ -71,19 +72,22 @@ const VideoCard = ({ video, isPurchased }: { video: any, isPurchased?: boolean, 
               </div>
               <span className="text-xs font-medium text-white">Watch Now</span>
             </div>
-            {video.is_premium && !isPurchased && (
+            {video.is_premium === 1 && (
               <div className="bg-amber-500/20 text-amber-500 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
                 <Lock size={10} /> Premium
-              </div>
-            )}
-            {isPurchased && (
-              <div className="bg-emerald-500/20 text-emerald-500 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
-                <CheckCircle2 size={10} /> Unlocked
               </div>
             )}
           </div>
         </div>
       </Link>
+      {user?.role === 'admin' && onDelete && (
+        <button 
+          onClick={(e) => { e.preventDefault(); onDelete(video.id); }}
+          className="absolute top-2 right-2 p-2 bg-red-600/80 hover:bg-red-600 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity"
+        >
+          <Trash2 size={16} />
+        </button>
+      )}
     </motion.div>
   );
 };
@@ -103,15 +107,15 @@ const HomePage = () => {
       });
   }, []);
 
-  const featured = videos[0];
+  const categories = ['Trending', 'Premium', 'Free'];
 
   return (
     <div className="pt-20 pb-12 min-h-screen bg-black text-white">
       {/* Hero Section */}
-      {featured && (
-        <div className="relative h-[70vh] w-full overflow-hidden">
+      {videos.length > 0 && (
+        <div className="relative h-[80vh] w-full overflow-hidden">
           <img 
-            src={featured.thumbnail_url || `https://picsum.photos/seed/hero/1920/1080`} 
+            src={videos[0].thumbnail_url || `https://picsum.photos/seed/hero/1920/1080`} 
             className="w-full h-full object-cover opacity-60"
             referrerPolicy="no-referrer"
           />
@@ -124,12 +128,12 @@ const HomePage = () => {
             >
               <div className="flex items-center gap-3 mb-4">
                 <span className="bg-red-600 px-3 py-1 rounded-full text-xs font-bold tracking-widest uppercase">Featured</span>
-                <span className="text-white/60 text-sm">{featured.category}</span>
+                <span className="text-white/60 text-sm">{videos[0].category}</span>
               </div>
-              <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">{featured.title}</h1>
-              <p className="text-lg text-white/70 mb-8 line-clamp-3">{featured.description}</p>
+              <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">{videos[0].title}</h1>
+              <p className="text-lg text-white/70 mb-8 line-clamp-3">{videos[0].description}</p>
               <div className="flex items-center gap-4">
-                <Link to={`/video/${featured.id}`} className="px-8 py-3 bg-white text-black font-bold rounded-full flex items-center gap-2 hover:bg-white/90 transition-all">
+                <Link to={`/video/${videos[0].id}`} className="px-8 py-3 bg-white text-black font-bold rounded-full flex items-center gap-2 hover:bg-white/90 transition-all">
                   <Play size={20} fill="black" /> Play Now
                 </Link>
                 <button className="px-8 py-3 bg-white/10 text-white font-bold rounded-full backdrop-blur-md hover:bg-white/20 transition-all">
@@ -141,25 +145,23 @@ const HomePage = () => {
         </div>
       )}
 
-      {/* Video Grid */}
-      <div className="px-6 md:px-16 mt-12">
-        <div className="flex items-center justify-between mb-8">
-          <h2 className="text-2xl font-bold">Trending Now</h2>
-          <Link to="/categories" className="text-red-500 text-sm font-medium flex items-center gap-1 hover:underline">
-            View All <ChevronRight size={16} />
-          </Link>
-        </div>
-        {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[1, 2, 3, 4].map(i => <div key={i} className="aspect-video rounded-xl bg-zinc-900 animate-pulse" />)}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {videos.map((video: any) => (
-              <VideoCard key={video.id} video={video} />
-            ))}
-          </div>
-        )}
+      {/* Rows */}
+      <div className="px-6 md:px-16 -mt-20 relative z-10 space-y-12">
+        {categories.map(cat => {
+          const catVideos = videos.filter((v: any) => v.category === cat || (cat === 'Premium' && v.is_premium === 1) || (cat === 'Free' && v.is_premium === 0));
+          if (catVideos.length === 0) return null;
+          
+          return (
+            <div key={cat}>
+              <h2 className="text-2xl font-bold mb-6">{cat}</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {catVideos.map((video: any) => (
+                  <VideoCard key={video.id} video={video} />
+                ))}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -167,77 +169,70 @@ const HomePage = () => {
 
 const VideoDetailPage = () => {
   const { id } = useParams();
-  const { user, token } = useAuth();
+  const { user } = useAuth();
   const [video, setVideo] = useState<any>(null);
-  const [purchased, setPurchased] = useState(false);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
 
   useEffect(() => {
     fetch(`/api/videos/${id}`)
       .then(res => res.json())
       .then(data => {
         setVideo(data);
-        if (user) {
-          fetch('/api/user/purchases', {
-            headers: { 'Authorization': `Bearer ${token}` }
-          })
-          .then(res => res.json())
-          .then(purchases => {
-            setPurchased(purchases.some((p: any) => p.id === parseInt(id!)));
-            setLoading(false);
-          });
-        } else {
-          setLoading(false);
-        }
+        setLoading(false);
       });
-  }, [id, user, token]);
-
-  const handlePurchase = async () => {
-    if (!user) return navigate('/login');
-    const res = await fetch('/api/purchase', {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({ video_id: parseInt(id!) })
-    });
-    if (res.ok) {
-      setPurchased(true);
-    }
-  };
+  }, [id]);
 
   if (loading) return <div className="min-h-screen bg-black flex items-center justify-center text-white">Loading...</div>;
   if (!video) return <div className="min-h-screen bg-black flex items-center justify-center text-white">Video not found</div>;
 
-  const canWatch = !video.is_premium || purchased || user?.role === 'admin';
+  const isLocked = video.is_premium === 1 && user?.role !== 'admin';
 
   return (
     <div className="pt-20 min-h-screen bg-black text-white px-6 md:px-16 pb-20">
       <div className="max-w-6xl mx-auto">
-        {canWatch ? (
+        {isLocked ? (
+          <div className="aspect-video w-full bg-zinc-900 rounded-2xl flex flex-col items-center justify-center p-8 text-center border border-white/5 shadow-2xl relative overflow-hidden">
+            <div className="absolute inset-0 opacity-10">
+              <img src={video.thumbnail_url} className="w-full h-full object-cover blur-xl" />
+            </div>
+            <div className="relative z-10">
+              <div className="w-20 h-20 bg-amber-500/10 rounded-full flex items-center justify-center mb-6 mx-auto">
+                <Lock size={40} className="text-amber-500" />
+              </div>
+              <h2 className="text-3xl font-bold mb-4">Premium Content Locked</h2>
+              <p className="text-white/60 mb-8 max-w-md mx-auto">To unlock this video, please complete the payment of <span className="text-amber-500 font-bold">${video.price}</span>.</p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-lg mx-auto mb-8">
+                <div className="bg-white/5 p-6 rounded-2xl border border-white/10 text-left">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 bg-pink-600 rounded-lg flex items-center justify-center font-bold">b</div>
+                    <span className="font-bold">bKash Payment</span>
+                  </div>
+                  <p className="text-xs text-white/50 mb-2">Send Money to:</p>
+                  <p className="text-sm font-mono text-pink-500 font-bold">017XX-XXXXXX</p>
+                </div>
+                <div className="bg-white/5 p-6 rounded-2xl border border-white/10 text-left">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 bg-orange-600 rounded-lg flex items-center justify-center font-bold">n</div>
+                    <span className="font-bold">Nagad Payment</span>
+                  </div>
+                  <p className="text-xs text-white/50 mb-2">Send Money to:</p>
+                  <p className="text-sm font-mono text-orange-500 font-bold">019XX-XXXXXX</p>
+                </div>
+              </div>
+              
+              <p className="text-xs text-white/30 italic">After payment, please contact support with your transaction ID to unlock.</p>
+            </div>
+          </div>
+        ) : (
           <div className="aspect-video w-full bg-zinc-900 rounded-2xl overflow-hidden shadow-2xl border border-white/5">
             <video 
               controls 
+              autoPlay
               className="w-full h-full"
               poster={video.thumbnail_url}
               src={video.video_url}
             />
-          </div>
-        ) : (
-          <div className="aspect-video w-full bg-zinc-900 rounded-2xl flex flex-col items-center justify-center p-8 text-center border border-white/5 shadow-2xl">
-            <div className="w-20 h-20 bg-amber-500/10 rounded-full flex items-center justify-center mb-6">
-              <Lock size={40} className="text-amber-500" />
-            </div>
-            <h2 className="text-3xl font-bold mb-4">This content is Premium</h2>
-            <p className="text-white/60 mb-8 max-w-md">Unlock this video to enjoy high-quality streaming and exclusive content.</p>
-            <button 
-              onClick={handlePurchase}
-              className="px-10 py-4 bg-amber-500 hover:bg-amber-600 text-black font-bold rounded-full transition-all flex items-center gap-2"
-            >
-              Unlock Now for ${video.price || '9.99'}
-            </button>
           </div>
         )}
 
@@ -246,17 +241,9 @@ const VideoDetailPage = () => {
             <div>
               <div className="flex items-center gap-3 mb-2">
                 <span className="text-red-500 font-bold uppercase tracking-widest text-xs">{video.category}</span>
-                {video.is_premium && <span className="bg-amber-500/20 text-amber-500 px-2 py-0.5 rounded text-[10px] font-bold">PREMIUM</span>}
+                {video.is_premium === 1 && <span className="bg-amber-500/20 text-amber-500 px-2 py-0.5 rounded text-[10px] font-bold">PREMIUM</span>}
               </div>
               <h1 className="text-4xl font-bold mb-4">{video.title}</h1>
-            </div>
-            <div className="flex items-center gap-4">
-              <button className="p-3 bg-white/5 hover:bg-white/10 rounded-full transition-colors">
-                <Search size={20} />
-              </button>
-              <button className="p-3 bg-white/5 hover:bg-white/10 rounded-full transition-colors">
-                <LayoutGrid size={20} />
-              </button>
             </div>
           </div>
           <div className="h-px bg-white/10 my-8" />
@@ -276,7 +263,7 @@ const LoginPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const res = await fetch('/api/auth/login', {
+    const res = await fetch('/api/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
@@ -284,7 +271,7 @@ const LoginPage = () => {
     const data = await res.json();
     if (res.ok) {
       login(data.token, data.user);
-      navigate('/');
+      navigate('/admin');
     } else {
       setError(data.error);
     }
@@ -306,18 +293,13 @@ const LoginPage = () => {
           <Link to="/" className="text-3xl font-bold bg-gradient-to-r from-red-600 to-orange-500 bg-clip-text text-transparent mb-4 inline-block">
             Hridoy Hub
           </Link>
-          <h2 className="text-2xl font-bold text-white">Welcome Back</h2>
-          <p className="text-white/50 mt-2">Sign in to continue streaming</p>
+          <h2 className="text-2xl font-bold text-white">Admin Login</h2>
+          <p className="text-white/50 mt-2">Manage your video library</p>
         </div>
 
         {error && <div className="bg-red-500/10 border border-red-500/20 text-red-500 p-4 rounded-xl text-sm mb-6">{error}</div>}
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="bg-white/5 border border-white/10 rounded-xl p-4 mb-2">
-            <p className="text-[10px] uppercase tracking-widest text-white/40 mb-2 font-bold">Admin Demo Credentials</p>
-            <p className="text-xs text-white/70">Email: <span className="text-red-400 font-mono">admin@hridoy.com</span></p>
-            <p className="text-xs text-white/70">Pass: <span className="text-red-400 font-mono">admin123</span></p>
-          </div>
           <div>
             <label className="block text-sm font-medium text-white/70 mb-2">Email Address</label>
             <input 
@@ -326,7 +308,7 @@ const LoginPage = () => {
               value={email}
               onChange={e => setEmail(e.target.value)}
               className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-all"
-              placeholder="name@example.com"
+              placeholder="admin@hridoy.com"
             />
           </div>
           <div>
@@ -344,147 +326,7 @@ const LoginPage = () => {
             Sign In
           </button>
         </form>
-
-        <p className="text-center mt-8 text-white/50 text-sm">
-          Don't have an account? <Link to="/signup" className="text-red-500 font-bold hover:underline">Sign Up</Link>
-        </p>
       </motion.div>
-    </div>
-  );
-};
-
-const SignupPage = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const navigate = useNavigate();
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const res = await fetch('/api/auth/signup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
-    });
-    const data = await res.json();
-    if (res.ok) {
-      navigate('/login');
-    } else {
-      setError(data.error);
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-black flex items-center justify-center px-6 relative overflow-hidden">
-      <div className="absolute top-0 left-0 w-full h-full opacity-20 pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-red-600 rounded-full blur-[120px]" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-orange-600 rounded-full blur-[120px]" />
-      </div>
-
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md bg-zinc-900/50 backdrop-blur-xl p-10 rounded-3xl border border-white/10 shadow-2xl relative z-10"
-      >
-        <div className="text-center mb-10">
-          <Link to="/" className="text-3xl font-bold bg-gradient-to-r from-red-600 to-orange-500 bg-clip-text text-transparent mb-4 inline-block">
-            Hridoy Hub
-          </Link>
-          <h2 className="text-2xl font-bold text-white">Create Account</h2>
-          <p className="text-white/50 mt-2">Join our premium streaming community</p>
-        </div>
-
-        {error && <div className="bg-red-500/10 border border-red-500/20 text-red-500 p-4 rounded-xl text-sm mb-6">{error}</div>}
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-white/70 mb-2">Email Address</label>
-            <input 
-              type="email" 
-              required 
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-all"
-              placeholder="name@example.com"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-white/70 mb-2">Password</label>
-            <input 
-              type="password" 
-              required 
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-all"
-              placeholder="••••••••"
-            />
-          </div>
-          <button type="submit" className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-red-600/20">
-            Create Account
-          </button>
-        </form>
-
-        <p className="text-center mt-8 text-white/50 text-sm">
-          Already have an account? <Link to="/login" className="text-red-500 font-bold hover:underline">Sign In</Link>
-        </p>
-      </motion.div>
-    </div>
-  );
-};
-
-const DashboardPage = () => {
-  const { user, token } = useAuth();
-  const [purchases, setPurchases] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (user) {
-      fetch('/api/user/purchases', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-      .then(res => res.json())
-      .then(data => {
-        setPurchases(data);
-        setLoading(false);
-      });
-    }
-  }, [user, token]);
-
-  return (
-    <div className="pt-28 min-h-screen bg-black text-white px-6 md:px-16">
-      <div className="flex items-center gap-6 mb-12">
-        <div className="w-20 h-20 bg-gradient-to-br from-red-600 to-orange-500 rounded-full flex items-center justify-center text-3xl font-bold">
-          {user?.email[0].toUpperCase()}
-        </div>
-        <div>
-          <h1 className="text-3xl font-bold">{user?.email}</h1>
-          <p className="text-white/50">Premium Member</p>
-        </div>
-      </div>
-
-      <div className="mb-16">
-        <h2 className="text-2xl font-bold mb-8 flex items-center gap-2">
-          <CheckCircle2 className="text-emerald-500" /> My Purchased Content
-        </h2>
-        {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[1, 2, 3, 4].map(i => <div key={i} className="aspect-video rounded-xl bg-zinc-900 animate-pulse" />)}
-          </div>
-        ) : purchases.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {purchases.map((video: any) => (
-              <VideoCard key={video.id} video={video} isPurchased />
-            ))}
-          </div>
-        ) : (
-          <div className="bg-zinc-900/50 border border-white/5 rounded-3xl p-12 text-center">
-            <p className="text-white/40 mb-6">You haven't purchased any premium videos yet.</p>
-            <Link to="/" className="px-8 py-3 bg-white text-black font-bold rounded-full hover:bg-white/90 transition-all inline-block">
-              Browse Premium Content
-            </Link>
-          </div>
-        )}
-      </div>
     </div>
   );
 };
@@ -492,37 +334,29 @@ const DashboardPage = () => {
 const AdminPage = () => {
   const { user, token } = useAuth();
   const navigate = useNavigate();
+  const [videos, setVideos] = useState([]);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [thumbnailUrl, setThumbnailUrl] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
-  const [category, setCategory] = useState('Action');
+  const [category, setCategory] = useState('Trending');
   const [isPremium, setIsPremium] = useState(false);
   const [price, setPrice] = useState('9.99');
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    if (!user) {
+    if (user?.role !== 'admin') {
       navigate('/login');
+    } else {
+      fetchVideos();
     }
   }, [user, navigate]);
 
-  if (!user) return null;
-
-  if (user.role !== 'admin') {
-    return (
-      <div className="min-h-screen bg-black flex flex-col items-center justify-center text-white p-6 text-center">
-        <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mb-6">
-          <Lock size={40} className="text-red-500" />
-        </div>
-        <h2 className="text-3xl font-bold mb-4">Access Denied</h2>
-        <p className="text-white/60 mb-8 max-w-md">You do not have administrative privileges to access this dashboard.</p>
-        <Link to="/" className="px-8 py-3 bg-white text-black font-bold rounded-full hover:bg-white/90 transition-all">
-          Return Home
-        </Link>
-      </div>
-    );
-  }
+  const fetchVideos = () => {
+    fetch('/api/videos')
+      .then(res => res.json())
+      .then(data => setVideos(data));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -548,13 +382,27 @@ const AdminPage = () => {
       setDescription('');
       setThumbnailUrl('');
       setVideoUrl('');
+      fetchVideos();
       setTimeout(() => setSuccess(false), 3000);
     }
   };
 
+  const handleDelete = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this video?')) return;
+    const res = await fetch(`/api/videos/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (res.ok) {
+      fetchVideos();
+    }
+  };
+
+  if (user?.role !== 'admin') return null;
+
   return (
     <div className="pt-28 min-h-screen bg-black text-white px-6 md:px-16 pb-20">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         <div className="flex items-center justify-between mb-12">
           <h1 className="text-4xl font-bold">Admin Dashboard</h1>
           <div className="bg-red-600/10 text-red-500 px-4 py-2 rounded-full text-sm font-bold border border-red-500/20">
@@ -562,105 +410,92 @@ const AdminPage = () => {
           </div>
         </div>
 
-        <div className="bg-zinc-900/50 border border-white/10 rounded-3xl p-10 shadow-2xl">
-          <h2 className="text-2xl font-bold mb-8 flex items-center gap-2">
-            <Upload className="text-red-500" /> Upload New Video
-          </h2>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+          <div className="lg:col-span-1">
+            <div className="bg-zinc-900/50 border border-white/10 rounded-3xl p-8 shadow-2xl sticky top-28">
+              <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
+                <Upload className="text-red-500" size={20} /> Upload Video
+              </h2>
 
-          {success && <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 p-4 rounded-xl text-sm mb-8">Video uploaded successfully!</div>}
+              {success && <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 p-4 rounded-xl text-sm mb-6">Published!</div>}
 
-          <form onSubmit={handleSubmit} className="space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-sm font-medium text-white/70 mb-2">Video Title</label>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <input 
+                  type="text" 
+                  placeholder="Title"
+                  required 
+                  value={title}
+                  onChange={e => setTitle(e.target.value)}
+                  className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-red-500/50"
+                />
+                <select 
+                  value={category}
+                  onChange={e => setCategory(e.target.value)}
+                  className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-red-500/50"
+                >
+                  <option>Trending</option>
+                  <option>Premium</option>
+                  <option>Free</option>
+                  <option>Action</option>
+                  <option>Drama</option>
+                </select>
+                <input 
+                  type="url" 
+                  placeholder="Thumbnail URL"
+                  required 
+                  value={thumbnailUrl}
+                  onChange={e => setThumbnailUrl(e.target.value)}
+                  className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-red-500/50"
+                />
+                <input 
+                  type="url" 
+                  placeholder="Video URL (.mp4)"
+                  required 
+                  value={videoUrl}
+                  onChange={e => setVideoUrl(e.target.value)}
+                  className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-red-500/50"
+                />
+                <textarea 
+                  placeholder="Description"
+                  required 
+                  rows={3}
+                  value={description}
+                  onChange={e => setDescription(e.target.value)}
+                  className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 resize-none"
+                />
+                <div className="flex items-center justify-between p-3 bg-black/30 rounded-xl border border-white/5">
+                  <span className="text-sm text-white/70">Premium?</span>
                   <input 
-                    type="text" 
-                    required 
-                    value={title}
-                    onChange={e => setTitle(e.target.value)}
-                    className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-all"
+                    type="checkbox" 
+                    checked={isPremium}
+                    onChange={e => setIsPremium(e.target.checked)}
+                    className="w-5 h-5 accent-red-600"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-white/70 mb-2">Category</label>
-                  <select 
-                    value={category}
-                    onChange={e => setCategory(e.target.value)}
-                    className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-all"
-                  >
-                    <option>Action</option>
-                    <option>Drama</option>
-                    <option>Sci-Fi</option>
-                    <option>Comedy</option>
-                    <option>Documentary</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-white/70 mb-2">Thumbnail URL</label>
+                {isPremium && (
                   <input 
-                    type="url" 
-                    required 
-                    value={thumbnailUrl}
-                    onChange={e => setThumbnailUrl(e.target.value)}
-                    className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-all"
-                    placeholder="https://images.unsplash.com/..."
+                    type="number" 
+                    step="0.01"
+                    value={price}
+                    onChange={e => setPrice(e.target.value)}
+                    className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-red-500/50"
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-white/70 mb-2">Video URL (Direct MP4)</label>
-                  <input 
-                    type="url" 
-                    required 
-                    value={videoUrl}
-                    onChange={e => setVideoUrl(e.target.value)}
-                    className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-all"
-                    placeholder="https://example.com/video.mp4"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-sm font-medium text-white/70 mb-2">Description</label>
-                  <textarea 
-                    required 
-                    rows={5}
-                    value={description}
-                    onChange={e => setDescription(e.target.value)}
-                    className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-all resize-none"
-                  />
-                </div>
-                <div className="bg-black/30 p-6 rounded-2xl border border-white/5">
-                  <div className="flex items-center justify-between mb-4">
-                    <label className="text-sm font-medium text-white/70">Premium Content</label>
-                    <input 
-                      type="checkbox" 
-                      checked={isPremium}
-                      onChange={e => setIsPremium(e.target.checked)}
-                      className="w-5 h-5 accent-red-600"
-                    />
-                  </div>
-                  {isPremium && (
-                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
-                      <label className="block text-xs font-medium text-white/50 mb-2">Price (USD)</label>
-                      <input 
-                        type="number" 
-                        step="0.01"
-                        value={price}
-                        onChange={e => setPrice(e.target.value)}
-                        className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-all"
-                      />
-                    </motion.div>
-                  )}
-                </div>
-              </div>
+                )}
+                <button type="submit" className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-red-600/20">
+                  Publish
+                </button>
+              </form>
             </div>
+          </div>
 
-            <button type="submit" className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-red-600/20 flex items-center justify-center gap-2">
-              <Upload size={20} /> Publish Video
-            </button>
-          </form>
+          <div className="lg:col-span-2">
+            <h2 className="text-xl font-bold mb-6">Manage Videos</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              {videos.map((video: any) => (
+                <VideoCard key={video.id} video={video} onDelete={handleDelete} />
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -670,7 +505,7 @@ const AdminPage = () => {
 const CategoriesPage = () => {
   const [videos, setVideos] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('All');
-  const categories = ['All', 'Action', 'Drama', 'Sci-Fi', 'Comedy', 'Documentary'];
+  const categories = ['All', 'Trending', 'Premium', 'Free', 'Action', 'Drama'];
 
   useEffect(() => {
     fetch('/api/videos')
@@ -680,7 +515,7 @@ const CategoriesPage = () => {
 
   const filteredVideos = selectedCategory === 'All' 
     ? videos 
-    : videos.filter((v: any) => v.category === selectedCategory);
+    : videos.filter((v: any) => v.category === selectedCategory || (selectedCategory === 'Premium' && v.is_premium === 1) || (selectedCategory === 'Free' && v.is_premium === 0));
 
   return (
     <div className="pt-28 min-h-screen bg-black text-white px-6 md:px-16 pb-20">
@@ -726,8 +561,6 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/video/:id" element={<VideoDetailPage />} />
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/signup" element={<SignupPage />} />
-        <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/admin" element={<AdminPage />} />
         <Route path="/categories" element={<CategoriesPage />} />
       </Routes>
@@ -735,15 +568,10 @@ export default function App() {
       <footer className="bg-zinc-950 border-t border-white/5 py-12 px-6 md:px-16">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
           <div className="text-center md:text-left">
-            <h2 className="text-xl font-bold bg-gradient-to-r from-red-600 to-orange-500 bg-clip-text text-transparent mb-2">Hridoy Video Hub</h2>
+            <h2 className="text-xl font-bold bg-gradient-to-r from-red-600 to-orange-500 bg-clip-text text-transparent mb-2">Hridoy Hub</h2>
             <p className="text-white/40 text-sm">Premium streaming for the modern era.</p>
           </div>
-          <div className="flex gap-8 text-white/40 text-sm">
-            <Link to="/" className="hover:text-white transition-colors">Privacy Policy</Link>
-            <Link to="/" className="hover:text-white transition-colors">Terms of Service</Link>
-            <Link to="/" className="hover:text-white transition-colors">Help Center</Link>
-          </div>
-          <p className="text-white/20 text-xs">© 2026 Hridoy Video Hub. All rights reserved.</p>
+          <p className="text-white/20 text-xs">© 2026 Hridoy Hub. All rights reserved.</p>
         </div>
       </footer>
     </div>
